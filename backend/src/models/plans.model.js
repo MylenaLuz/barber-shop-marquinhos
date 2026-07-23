@@ -1,87 +1,83 @@
 const db = require("../db");
 const { uid } = require("../utils/id");
 
-function listPlans({ includeInactive = false } = {}) {
+async function listPlans({ includeInactive = false } = {}) {
   const rows = includeInactive
-    ? db.prepare("SELECT * FROM plans ORDER BY sortOrder ASC, createdAt ASC").all()
-    : db.prepare("SELECT * FROM plans WHERE active = 1 ORDER BY sortOrder ASC, createdAt ASC").all();
-  return rows.map(withCredits);
+    ? await db.all("SELECT * FROM plans ORDER BY sortOrder ASC, createdAt ASC")
+    : await db.all("SELECT * FROM plans WHERE active = 1 ORDER BY sortOrder ASC, createdAt ASC");
+  return await Promise.all(rows.map(withCredits));
 }
 
-function withCredits(plan) {
+async function withCredits(plan) {
   if (!plan) return null;
-  const credits = db
-    .prepare("SELECT serviceType, quantity FROM plan_template_credits WHERE planId = ?")
-    .all(plan.id);
+  const credits = await db.all("SELECT serviceType, quantity FROM plan_template_credits WHERE planId = ?", [plan.id]);
   return { ...plan, credits };
 }
 
-function getPlan(id) {
-  return withCredits(db.prepare("SELECT * FROM plans WHERE id = ?").get(id));
+async function getPlan(id) {
+  const plan = await db.get("SELECT * FROM plans WHERE id = ?", [id]);
+  return await withCredits(plan);
 }
 
-function createPlan({ name, price, validityDays, credits }) {
+async function createPlan({ name, price, validityDays, credits }) {
   const id = uid("plan");
-  db.prepare("INSERT INTO plans (id, name, price, validityDays, active, sortOrder) VALUES (?, ?, ?, ?, 1, ?)").run(
-    id,
-    name,
-    price,
-    validityDays || 30,
-    db.prepare("SELECT COALESCE(MAX(sortOrder),0) as m FROM plans").get().m + 1
+  const maxRow = await db.get("SELECT COALESCE(MAX(sortOrder),0) as m FROM plans");
+  await db.run(
+    "INSERT INTO plans (id, name, price, validityDays, active, sortOrder) VALUES (?, ?, ?, ?, 1, ?)",
+    [id, name, price, validityDays || 30, maxRow.m + 1]
   );
-  (credits || []).forEach((c) => {
-    db.prepare("INSERT INTO plan_template_credits (id, planId, serviceType, quantity) VALUES (?, ?, ?, ?)").run(
-      uid("ptc"),
-      id,
-      c.serviceType,
-      c.quantity
+  for (const c of credits || []) {
+    await db.run(
+      "INSERT INTO plan_template_credits (id, planId, serviceType, quantity) VALUES (?, ?, ?, ?)",
+      [uid("ptc"), id, c.serviceType, c.quantity]
     );
-  });
-  return getPlan(id);
+  }
+  return await getPlan(id);
 }
 
-function updatePlan(id, { name, price, validityDays, active, credits }) {
-  const current = getPlan(id);
+async function updatePlan(id, { name, price, validityDays, active, credits }) {
+  const current = await getPlan(id);
   if (!current) return null;
-  db.prepare("UPDATE plans SET name=?, price=?, validityDays=?, active=? WHERE id=?").run(
-    name ?? current.name,
-    price ?? current.price,
-    validityDays ?? current.validityDays,
-    active === undefined ? current.active : active ? 1 : 0,
-    id
+  await db.run(
+    "UPDATE plans SET name=?, price=?, validityDays=?, active=? WHERE id=?",
+    [
+      name ?? current.name,
+      price ?? current.price,
+      validityDays ?? current.validityDays,
+      active === undefined ? current.active : active ? 1 : 0,
+      id,
+    ]
   );
   if (credits) {
-    db.prepare("DELETE FROM plan_template_credits WHERE planId = ?").run(id);
-    credits.forEach((c) => {
-      db.prepare("INSERT INTO plan_template_credits (id, planId, serviceType, quantity) VALUES (?, ?, ?, ?)").run(
-        uid("ptc"),
-        id,
-        c.serviceType,
-        c.quantity
+    await db.run("DELETE FROM plan_template_credits WHERE planId = ?", [id]);
+    for (const c of credits) {
+      await db.run(
+        "INSERT INTO plan_template_credits (id, planId, serviceType, quantity) VALUES (?, ?, ?, ?)",
+        [uid("ptc"), id, c.serviceType, c.quantity]
       );
-    });
+    }
   }
-  return getPlan(id);
+  return await getPlan(id);
 }
 
-function isPlanInUse(id) {
-  const row = db.prepare("SELECT COUNT(*) as c FROM client_plans WHERE planId = ?").get(id);
+async function isPlanInUse(id) {
+  const row = await db.get("SELECT COUNT(*) as c FROM client_plans WHERE planId = ?", [id]);
   return row.c > 0;
 }
 
-function deletePlan(id) {
-  if (isPlanInUse(id)) return { ok: false, reason: "in_use" };
-  db.prepare("DELETE FROM plan_template_credits WHERE planId = ?").run(id);
-  db.prepare("DELETE FROM plans WHERE id = ?").run(id);
+async function deletePlan(id) {
+  if (await isPlanInUse(id)) return { ok: false, reason: "in_use" };
+  await db.run("DELETE FROM plan_template_credits WHERE planId = ?", [id]);
+  await db.run("DELETE FROM plans WHERE id = ?", [id]);
   return { ok: true };
 }
 
-function ensureSeeded() {
-  const count = db.prepare("SELECT COUNT(*) as c FROM plans").get().c;
-  if (count === 0) {
-    createPlan({ name: "2 Cortes", price: 59.99, validityDays: 30, credits: [{ serviceType: "Corte", quantity: 2 }] });
-    createPlan({ name: "4 Cortes", price: 80.0, validityDays: 30, credits: [{ serviceType: "Corte", quantity: 4 }] });
-    createPlan({
+async function ensureSeeded() {
+  const row = await db.get("SELECT COUNT(*) as c FROM plans");
+  if (row.c === 0) {
+    await createPlan({ name: "2 Cortes", price: 59.99, validityDays: 30, credits: [{ serviceType: "Corte", quantity: 2 }] });
+    await createPlan({ name: "4 Cortes", price: 80.0, validityDays: 30, credits: [{ serviceType: "Corte", quantity: 4 }] });
+    await createPlan({
       name: "4 Cortes + 4 Sobrancelhas",
       price: 90.0,
       validityDays: 30,
@@ -90,7 +86,7 @@ function ensureSeeded() {
         { serviceType: "Sobrancelha", quantity: 4 },
       ],
     });
-    createPlan({
+    await createPlan({
       name: "Completo",
       price: 120.0,
       validityDays: 30,

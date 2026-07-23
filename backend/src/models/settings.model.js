@@ -10,47 +10,40 @@ const DEFAULT_HOURS = {
   dom: { open: "09:00", close: "13:00", closed: true },
 };
 
-function ensureSeeded() {
-  const row = db.prepare("SELECT id FROM settings WHERE id = 1").get();
+async function ensureSeeded() {
+  const row = await db.get("SELECT id FROM settings WHERE id = 1");
   if (!row) {
-    db.prepare(
+    await db.run(
       `INSERT INTO settings (id, name, whatsapp, instagram, phone, address, logo, heroVideo, hours)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      "Barbearia Marquinhos",
-      "5541999999999",
-      "barbeariamarquinhos",
-      "(41) 99999-9999",
-      "Rua Exemplo, 123 - Curitiba, PR",
-      "/images/logo.svg",
-      "/video/hero.mp4",
-      JSON.stringify(DEFAULT_HOURS)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        "Barbearia Marquinhos",
+        "5541999999999",
+        "barbeariamarquinhos",
+        "(41) 99999-9999",
+        "Rua Exemplo, 123 - Curitiba, PR",
+        "/images/logo.svg",
+        "/video/hero.mp4",
+        JSON.stringify(DEFAULT_HOURS),
+      ]
     );
   }
 }
 
-function getSettings() {
-  ensureSeeded();
-  const row = db.prepare("SELECT * FROM settings WHERE id = 1").get();
+async function getSettings() {
+  await ensureSeeded();
+  const row = await db.get("SELECT * FROM settings WHERE id = 1");
   return { ...row, hours: JSON.parse(row.hours) };
 }
 
-function updateSettings(patch) {
-  const current = getSettings();
+async function updateSettings(patch) {
+  const current = await getSettings();
   const next = { ...current, ...patch };
-  db.prepare(
-    `UPDATE settings SET name=?, whatsapp=?, instagram=?, phone=?, address=?, logo=?, heroVideo=?, hours=? WHERE id=1`
-  ).run(
-    next.name,
-    next.whatsapp,
-    next.instagram,
-    next.phone,
-    next.address,
-    next.logo,
-    next.heroVideo,
-    JSON.stringify(next.hours)
+  await db.run(
+    `UPDATE settings SET name=?, whatsapp=?, instagram=?, phone=?, address=?, logo=?, heroVideo=?, hours=? WHERE id=1`,
+    [next.name, next.whatsapp, next.instagram, next.phone, next.address, next.logo, next.heroVideo, JSON.stringify(next.hours)]
   );
-  return getSettings();
+  return await getSettings();
 }
 
-module.exports = { getSettings, updateSettings, DEFAULT_HOURS };
+module.exports = { getSettings, updateSettings, ensureSeeded, DEFAULT_HOURS };

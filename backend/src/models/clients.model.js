@@ -5,32 +5,30 @@ function normalizePhone(s) {
   return String(s || "").replace(/\D/g, "");
 }
 
-function listClients() {
-  return db
-    .prepare(
-      `SELECT c.*,
-        (SELECT COUNT(*) FROM appointments a WHERE a.clientId = c.id AND a.isBlock = 0) as appointmentCount,
-        (SELECT MAX(a.date) FROM appointments a WHERE a.clientId = c.id AND a.isBlock = 0) as lastVisit
-       FROM clients c ORDER BY lastVisit DESC`
-    )
-    .all();
+async function listClients() {
+  return await db.all(
+    `SELECT c.*,
+      (SELECT COUNT(*) FROM appointments a WHERE a.clientId = c.id AND a.isBlock = 0) as appointmentCount,
+      (SELECT MAX(a.date) FROM appointments a WHERE a.clientId = c.id AND a.isBlock = 0) as lastVisit
+     FROM clients c ORDER BY lastVisit DESC`
+  );
 }
-function findByPhone(phone) {
-  return db.prepare("SELECT * FROM clients WHERE phone = ?").get(normalizePhone(phone));
+async function findByPhone(phone) {
+  return await db.get("SELECT * FROM clients WHERE phone = ?", [normalizePhone(phone)]);
 }
-function getClient(id) {
-  return db.prepare("SELECT * FROM clients WHERE id = ?").get(id);
+async function getClient(id) {
+  return await db.get("SELECT * FROM clients WHERE id = ?", [id]);
 }
-function upsertClient({ name, phone }) {
+async function upsertClient({ name, phone }) {
   const normalized = normalizePhone(phone);
   if (!normalized) return null;
-  const existing = findByPhone(normalized);
+  const existing = await findByPhone(normalized);
   if (existing) {
-    db.prepare("UPDATE clients SET name=?, updatedAt=datetime('now') WHERE id=?").run(name, existing.id);
+    await db.run("UPDATE clients SET name=?, updatedAt=datetime('now') WHERE id=?", [name, existing.id]);
     return { ...existing, name };
   }
   const id = uid("cli");
-  db.prepare("INSERT INTO clients (id, name, phone) VALUES (?, ?, ?)").run(id, name, normalized);
+  await db.run("INSERT INTO clients (id, name, phone) VALUES (?, ?, ?)", [id, name, normalized]);
   return { id, name, phone: normalized };
 }
 

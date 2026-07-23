@@ -1,43 +1,37 @@
 const db = require("../db");
 const { uid } = require("../utils/id");
 
-function listServices() {
-  return db.prepare("SELECT * FROM services ORDER BY sortOrder ASC, createdAt ASC").all();
+async function listServices() {
+  return await db.all("SELECT * FROM services ORDER BY sortOrder ASC, createdAt ASC");
 }
-function getService(id) {
-  return db.prepare("SELECT * FROM services WHERE id = ?").get(id);
+async function getService(id) {
+  return await db.get("SELECT * FROM services WHERE id = ?", [id]);
 }
-function createService(data) {
+async function createService(data) {
   const id = data.id || uid("svc");
-  db.prepare(
+  await db.run(
     `INSERT INTO services (id, name, description, price, duration, image, sortOrder)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    id,
-    data.name,
-    data.description || "",
-    data.price,
-    data.duration,
-    data.image || "",
-    data.sortOrder || 0
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [id, data.name, data.description || "", data.price, data.duration, data.image || "", data.sortOrder || 0]
   );
-  return getService(id);
+  return await getService(id);
 }
-function updateService(id, data) {
-  const current = getService(id);
+async function updateService(id, data) {
+  const current = await getService(id);
   if (!current) return null;
   const next = { ...current, ...data };
-  db.prepare(
-    `UPDATE services SET name=?, description=?, price=?, duration=?, image=?, sortOrder=? WHERE id=?`
-  ).run(next.name, next.description, next.price, next.duration, next.image, next.sortOrder, id);
-  return getService(id);
+  await db.run(
+    `UPDATE services SET name=?, description=?, price=?, duration=?, image=?, sortOrder=? WHERE id=?`,
+    [next.name, next.description, next.price, next.duration, next.image, next.sortOrder, id]
+  );
+  return await getService(id);
 }
-function deleteService(id) {
-  db.prepare("DELETE FROM services WHERE id = ?").run(id);
+async function deleteService(id) {
+  await db.run("DELETE FROM services WHERE id = ?", [id]);
 }
-function ensureSeeded() {
-  const count = db.prepare("SELECT COUNT(*) as c FROM services").get().c;
-  if (count === 0) {
+async function ensureSeeded() {
+  const row = await db.get("SELECT COUNT(*) as c FROM services");
+  if (row.c === 0) {
     const defaults = [
       ["Corte", "Corte na tesoura e máquina, acabamento na navalha.", 45, 40],
       ["Barba", "Modelagem completa com toalha quente e navalha.", 30, 25],
@@ -51,9 +45,10 @@ function ensureSeeded() {
       ["Limpeza de Pele", "Limpeza facial completa.", 60, 40],
       ["Infantil", "Corte para crianças até 12 anos.", 35, 30],
     ];
-    defaults.forEach(([name, description, price, duration], i) =>
-      createService({ name, description, price, duration, image: "/images/services/default.jpg", sortOrder: i })
-    );
+    for (let i = 0; i < defaults.length; i++) {
+      const [name, description, price, duration] = defaults[i];
+      await createService({ name, description, price, duration, image: "/images/services/default.jpg", sortOrder: i });
+    }
   }
 }
 

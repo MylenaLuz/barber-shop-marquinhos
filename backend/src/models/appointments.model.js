@@ -2,7 +2,7 @@ const db = require("../db");
 const { uid } = require("../utils/id");
 const { upsertClient, normalizePhone } = require("./clients.model");
 
-function listAppointments({ date, dateFrom, dateTo, barberId, status } = {}) {
+async function listAppointments({ date, dateFrom, dateTo, barberId, status } = {}) {
   let sql = "SELECT * FROM appointments WHERE 1=1";
   const params = [];
   if (date) {
@@ -26,74 +26,77 @@ function listAppointments({ date, dateFrom, dateTo, barberId, status } = {}) {
     params.push(status);
   }
   sql += " ORDER BY date ASC, time ASC";
-  return db.prepare(sql).all(...params);
+  return await db.all(sql, params);
 }
-function getAppointment(id) {
-  return db.prepare("SELECT * FROM appointments WHERE id = ?").get(id);
+async function getAppointment(id) {
+  return await db.get("SELECT * FROM appointments WHERE id = ?", [id]);
 }
-function activeForBarberOnDate(barberId, date) {
-  return db
-    .prepare("SELECT * FROM appointments WHERE barberId = ? AND date = ? AND status != 'cancelado'")
-    .all(barberId, date);
+async function activeForBarberOnDate(barberId, date) {
+  return await db.all(
+    "SELECT * FROM appointments WHERE barberId = ? AND date = ? AND status != 'cancelado'",
+    [barberId, date]
+  );
 }
-function createAppointment(data) {
+async function createAppointment(data) {
   const id = uid("appt");
   let clientId = null;
   if (!data.isBlock && data.clientPhone) {
-    const client = upsertClient({ name: data.clientName, phone: data.clientPhone });
+    const client = await upsertClient({ name: data.clientName, phone: data.clientPhone });
     clientId = client?.id || null;
   }
-  db.prepare(
+  await db.run(
     `INSERT INTO appointments
       (id, barberId, serviceId, clientId, clientName, clientPhone, date, time, duration, price, status, isBlock, note)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    id,
-    data.barberId,
-    data.serviceId || null,
-    clientId,
-    data.clientName || "",
-    normalizePhone(data.clientPhone || ""),
-    data.date,
-    data.time,
-    data.duration,
-    data.price || 0,
-    data.status || "confirmado",
-    data.isBlock ? 1 : 0,
-    data.note || ""
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      data.barberId,
+      data.serviceId || null,
+      clientId,
+      data.clientName || "",
+      normalizePhone(data.clientPhone || ""),
+      data.date,
+      data.time,
+      data.duration,
+      data.price || 0,
+      data.status || "confirmado",
+      data.isBlock ? 1 : 0,
+      data.note || "",
+    ]
   );
-  return getAppointment(id);
+  return await getAppointment(id);
 }
-function updateAppointment(id, data) {
-  const current = getAppointment(id);
+async function updateAppointment(id, data) {
+  const current = await getAppointment(id);
   if (!current) return null;
   let clientId = current.clientId;
   if (data.clientPhone) {
-    const client = upsertClient({ name: data.clientName ?? current.clientName, phone: data.clientPhone });
+    const client = await upsertClient({ name: data.clientName ?? current.clientName, phone: data.clientPhone });
     clientId = client?.id || clientId;
   }
   const next = { ...current, ...data, clientId };
-  db.prepare(
+  await db.run(
     `UPDATE appointments SET barberId=?, serviceId=?, clientId=?, clientName=?, clientPhone=?, date=?, time=?,
-      duration=?, price=?, status=?, note=?, updatedAt=datetime('now') WHERE id=?`
-  ).run(
-    next.barberId,
-    next.serviceId,
-    next.clientId,
-    next.clientName,
-    normalizePhone(next.clientPhone || ""),
-    next.date,
-    next.time,
-    next.duration,
-    next.price,
-    next.status,
-    next.note,
-    id
+      duration=?, price=?, status=?, note=?, updatedAt=datetime('now') WHERE id=?`,
+    [
+      next.barberId,
+      next.serviceId,
+      next.clientId,
+      next.clientName,
+      normalizePhone(next.clientPhone || ""),
+      next.date,
+      next.time,
+      next.duration,
+      next.price,
+      next.status,
+      next.note,
+      id,
+    ]
   );
-  return getAppointment(id);
+  return await getAppointment(id);
 }
-function deleteAppointment(id) {
-  db.prepare("DELETE FROM appointments WHERE id = ?").run(id);
+async function deleteAppointment(id) {
+  await db.run("DELETE FROM appointments WHERE id = ?", [id]);
 }
 
 module.exports = {

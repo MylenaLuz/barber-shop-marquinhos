@@ -4,10 +4,10 @@ const Settings = require("../models/settings.model");
 
 const router = express.Router();
 
-router.get("/", (req, res) => res.json(Settings.getSettings()));
+router.get("/", async (req, res) => res.json(await Settings.getSettings()));
 
-router.put("/", requireAuth, (req, res) => {
-  const updated = Settings.updateSettings(req.body || {});
+router.put("/", requireAuth, async (req, res) => {
+  const updated = await Settings.updateSettings(req.body || {});
   res.json(updated);
 });
 

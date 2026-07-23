@@ -16,44 +16,43 @@ function daysBetween(fromISO, toISO) {
 
 // Garante que o status reflita a data atual (expira sozinho quando vence).
 // Feito de forma preguiçosa (a cada leitura), sem precisar de um job agendado.
-function recomputeStatus(clientPlan) {
+async function recomputeStatus(clientPlan) {
   if (clientPlan.status === "ativo" && clientPlan.endDate < todayISO()) {
-    db.prepare("UPDATE client_plans SET status = 'expirado' WHERE id = ?").run(clientPlan.id);
+    await db.run("UPDATE client_plans SET status = 'expirado' WHERE id = ?", [clientPlan.id]);
     return { ...clientPlan, status: "expirado" };
   }
   return clientPlan;
 }
 
-function getCredits(clientPlanId) {
-  return db.prepare("SELECT * FROM plan_credits WHERE clientPlanId = ?").all(clientPlanId);
+async function getCredits(clientPlanId) {
+  return await db.all("SELECT * FROM plan_credits WHERE clientPlanId = ?", [clientPlanId]);
 }
 
-function getClientPlan(id) {
-  const row = db.prepare("SELECT * FROM client_plans WHERE id = ?").get(id);
-  return row ? recomputeStatus(row) : null;
+async function getClientPlan(id) {
+  const row = await db.get("SELECT * FROM client_plans WHERE id = ?", [id]);
+  return row ? await recomputeStatus(row) : null;
 }
 
-function getActiveForClient(clientId) {
-  const rows = db
-    .prepare("SELECT * FROM client_plans WHERE clientId = ? ORDER BY createdAt DESC")
-    .all(clientId)
-    .map(recomputeStatus);
+async function getActiveForClient(clientId) {
+  const rawRows = await db.all("SELECT * FROM client_plans WHERE clientId = ? ORDER BY createdAt DESC", [clientId]);
+  const rows = await Promise.all(rawRows.map(recomputeStatus));
   const active = rows.find((r) => r.status === "ativo");
   if (!active) return null;
-  const plan = Plans.getPlan(active.planId);
-  const credits = getCredits(active.id);
+  const plan = await Plans.getPlan(active.planId);
+  const credits = await getCredits(active.id);
   return { clientPlan: active, plan, credits };
 }
 
-function getActiveClientIds() {
-  const rows = db.prepare("SELECT id, clientId, status, endDate FROM client_plans").all().map(recomputeStatus);
+async function getActiveClientIds() {
+  const rawRows = await db.all("SELECT id, clientId, status, endDate FROM client_plans");
+  const rows = await Promise.all(rawRows.map(recomputeStatus));
   return [...new Set(rows.filter((r) => r.status === "ativo").map((r) => r.clientId))];
 }
 
-function enrich(clientPlan) {
-  const client = Clients.getClient(clientPlan.clientId);
-  const plan = Plans.getPlan(clientPlan.planId);
-  const credits = getCredits(clientPlan.id);
+async function enrich(clientPlan) {
+  const client = await Clients.getClient(clientPlan.clientId);
+  const plan = await Plans.getPlan(clientPlan.planId);
+  const credits = await getCredits(clientPlan.id);
   const daysRemaining = daysBetween(todayISO(), clientPlan.endDate);
   return {
     ...clientPlan,
@@ -65,8 +64,10 @@ function enrich(clientPlan) {
   };
 }
 
-function listAll({ search, planId, dueFilter, creditsFilter } = {}) {
-  let rows = db.prepare("SELECT * FROM client_plans ORDER BY createdAt DESC").all().map(recomputeStatus).map(enrich);
+async function listAll({ search, planId, dueFilter, creditsFilter } = {}) {
+  const rawRows = await db.all("SELECT * FROM client_plans ORDER BY createdAt DESC");
+  const withStatus = await Promise.all(rawRows.map(recomputeStatus));
+  let rows = await Promise.all(withStatus.map(enrich));
 
   if (search && search.trim()) {
     const q = search.trim().toLowerCase();
@@ -90,13 +91,13 @@ function listAll({ search, planId, dueFilter, creditsFilter } = {}) {
   return rows;
 }
 
-function activatePlan({ clientId, planId }) {
-  const client = Clients.getClient(clientId);
+async function activatePlan({ clientId, planId }) {
+  const client = await Clients.getClient(clientId);
   if (!client) throw Object.assign(new Error("Cliente não encontrado."), { status: 404 });
-  const plan = Plans.getPlan(planId);
+  const plan = await Plans.getPlan(planId);
   if (!plan) throw Object.assign(new Error("Plano não encontrado."), { status: 404 });
 
-  const existingActive = getActiveForClient(clientId);
+  const existingActive = await getActiveForClient(clientId);
   if (existingActive) {
     throw Object.assign(
       new Error("Este cliente já possui um plano ativo. Aguarde o vencimento ou renove o plano atual."),
@@ -107,92 +108,98 @@ function activatePlan({ clientId, planId }) {
   const id = uid("cp");
   const startDate = todayISO();
   const endDate = addDays(startDate, plan.validityDays);
-  db.prepare(
-    "INSERT INTO client_plans (id, clientId, planId, startDate, endDate, status) VALUES (?, ?, ?, ?, ?, 'ativo')"
-  ).run(id, clientId, planId, startDate, endDate);
+  await db.run(
+    "INSERT INTO client_plans (id, clientId, planId, startDate, endDate, status) VALUES (?, ?, ?, ?, ?, 'ativo')",
+    [id, clientId, planId, startDate, endDate]
+  );
 
-  plan.credits.forEach((c) => {
-    db.prepare(
-      "INSERT INTO plan_credits (id, clientPlanId, serviceType, totalQuantity, remainingQuantity) VALUES (?, ?, ?, ?, ?)"
-    ).run(uid("pc"), id, c.serviceType, c.quantity, c.quantity);
-  });
+  for (const c of plan.credits) {
+    await db.run(
+      "INSERT INTO plan_credits (id, clientPlanId, serviceType, totalQuantity, remainingQuantity) VALUES (?, ?, ?, ?, ?)",
+      [uid("pc"), id, c.serviceType, c.quantity, c.quantity]
+    );
+  }
 
-  Transactions.createTransaction({
+  await Transactions.createTransaction({
     type: "receita",
     description: `Plano ${plan.name} — ${client.name}`,
     value: plan.price,
     date: startDate,
   });
 
-  return enrich(getClientPlan(id));
+  return await enrich(await getClientPlan(id));
 }
 
-function renewPlan(clientPlanId) {
-  const clientPlan = getClientPlan(clientPlanId);
+async function renewPlan(clientPlanId) {
+  const clientPlan = await getClientPlan(clientPlanId);
   if (!clientPlan) throw Object.assign(new Error("Plano do cliente não encontrado."), { status: 404 });
-  const plan = Plans.getPlan(clientPlan.planId);
-  const client = Clients.getClient(clientPlan.clientId);
+  const plan = await Plans.getPlan(clientPlan.planId);
+  const client = await Clients.getClient(clientPlan.clientId);
 
   const previousEndDate = clientPlan.endDate;
   const newEndDate = addDays(todayISO(), plan.validityDays);
 
-  db.prepare("UPDATE client_plans SET endDate = ?, status = 'ativo' WHERE id = ?").run(newEndDate, clientPlanId);
+  await db.run("UPDATE client_plans SET endDate = ?, status = 'ativo' WHERE id = ?", [newEndDate, clientPlanId]);
 
   // Reinicia todos os créditos (volta pro total original do plano)
-  const credits = getCredits(clientPlanId);
-  credits.forEach((c) => {
-    db.prepare("UPDATE plan_credits SET remainingQuantity = totalQuantity WHERE id = ?").run(c.id);
-  });
+  const credits = await getCredits(clientPlanId);
+  for (const c of credits) {
+    await db.run("UPDATE plan_credits SET remainingQuantity = totalQuantity WHERE id = ?", [c.id]);
+  }
 
-  db.prepare(
-    "INSERT INTO plan_renewals (id, clientPlanId, previousEndDate, newEndDate) VALUES (?, ?, ?, ?)"
-  ).run(uid("ren"), clientPlanId, previousEndDate, newEndDate);
+  await db.run(
+    "INSERT INTO plan_renewals (id, clientPlanId, previousEndDate, newEndDate) VALUES (?, ?, ?, ?)",
+    [uid("ren"), clientPlanId, previousEndDate, newEndDate]
+  );
 
-  Transactions.createTransaction({
+  await Transactions.createTransaction({
     type: "receita",
     description: `Renovação — Plano ${plan.name} — ${client?.name || ""}`,
     value: plan.price,
     date: todayISO(),
   });
 
-  return enrich(getClientPlan(clientPlanId));
+  return await enrich(await getClientPlan(clientPlanId));
 }
 
-function consumeCredit(clientPlanId, serviceType, appointmentId) {
-  const credit = db
-    .prepare("SELECT * FROM plan_credits WHERE clientPlanId = ? AND serviceType = ?")
-    .get(clientPlanId, serviceType);
+async function consumeCredit(clientPlanId, serviceType, appointmentId) {
+  const credit = await db.get(
+    "SELECT * FROM plan_credits WHERE clientPlanId = ? AND serviceType = ?",
+    [clientPlanId, serviceType]
+  );
   if (!credit) throw Object.assign(new Error("Esse tipo de crédito não existe nesse plano."), { status: 400 });
   if (credit.remainingQuantity <= 0)
     throw Object.assign(new Error("Não há créditos restantes desse tipo."), { status: 400 });
 
-  db.prepare("UPDATE plan_credits SET remainingQuantity = remainingQuantity - 1 WHERE id = ?").run(credit.id);
-  db.prepare(
-    "INSERT INTO plan_consumption_history (id, clientPlanId, serviceType, appointmentId) VALUES (?, ?, ?, ?)"
-  ).run(uid("pch"), clientPlanId, serviceType, appointmentId || null);
+  await db.run("UPDATE plan_credits SET remainingQuantity = remainingQuantity - 1 WHERE id = ?", [credit.id]);
+  await db.run(
+    "INSERT INTO plan_consumption_history (id, clientPlanId, serviceType, appointmentId) VALUES (?, ?, ?, ?)",
+    [uid("pch"), clientPlanId, serviceType, appointmentId || null]
+  );
 
-  return enrich(getClientPlan(clientPlanId));
+  return await enrich(await getClientPlan(clientPlanId));
 }
 
-function getHistory(clientPlanId) {
-  return db
-    .prepare(
-      `SELECT h.*, a.date as appointmentDate FROM plan_consumption_history h
-       LEFT JOIN appointments a ON a.id = h.appointmentId
-       WHERE h.clientPlanId = ? ORDER BY h.consumedAt DESC`
-    )
-    .all(clientPlanId);
+async function getHistory(clientPlanId) {
+  return await db.all(
+    `SELECT h.*, a.date as appointmentDate FROM plan_consumption_history h
+     LEFT JOIN appointments a ON a.id = h.appointmentId
+     WHERE h.clientPlanId = ? ORDER BY h.consumedAt DESC`,
+    [clientPlanId]
+  );
 }
 
-function getAlerts() {
-  const rows = db.prepare("SELECT * FROM client_plans").all().map(recomputeStatus).filter((r) => r.status === "ativo");
+async function getAlerts() {
+  const rawRows = await db.all("SELECT * FROM client_plans");
+  const withStatus = await Promise.all(rawRows.map(recomputeStatus));
+  const rows = withStatus.filter((r) => r.status === "ativo");
   const alerts = [];
-  rows.forEach((r) => {
-    const client = Clients.getClient(r.clientId);
+  for (const r of rows) {
+    const client = await Clients.getClient(r.clientId);
     const name = client?.name || "Cliente";
     const daysRemaining = daysBetween(todayISO(), r.endDate);
-    const credits = getCredits(r.id);
-    credits.forEach((c) => {
+    const credits = await getCredits(r.id);
+    for (const c of credits) {
       if (c.remainingQuantity === 1) {
         alerts.push({
           type: "credito",
@@ -200,7 +207,7 @@ function getAlerts() {
           message: `${name} possui apenas 1 ${c.serviceType.toLowerCase()} restante.`,
         });
       }
-    });
+    }
     if (daysRemaining < 7 && daysRemaining >= 0) {
       alerts.push({
         type: "vencimento",
@@ -211,7 +218,7 @@ function getAlerts() {
             : `O plano de ${name} vence em ${daysRemaining} dia${daysRemaining === 1 ? "" : "s"}.`,
       });
     }
-  });
+  }
   return alerts;
 }
 

@@ -1,7 +1,7 @@
 const db = require("../db");
 const { uid } = require("../utils/id");
 
-function listTransactions({ dateFrom, dateTo, type } = {}) {
+async function listTransactions({ dateFrom, dateTo, type } = {}) {
   let sql = "SELECT * FROM transactions WHERE 1=1";
   const params = [];
   if (dateFrom) {
@@ -17,30 +17,31 @@ function listTransactions({ dateFrom, dateTo, type } = {}) {
     params.push(type);
   }
   sql += " ORDER BY date DESC, createdAt DESC";
-  return db.prepare(sql).all(...params);
+  return await db.all(sql, params);
 }
-function createTransaction(data) {
+async function createTransaction(data) {
   const id = uid("tx");
-  db.prepare(
+  await db.run(
     `INSERT INTO transactions (id, type, description, value, date, barberId, serviceId, appointmentId)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    id,
-    data.type,
-    data.description,
-    data.value,
-    data.date,
-    data.barberId || null,
-    data.serviceId || null,
-    data.appointmentId || null
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      data.type,
+      data.description,
+      data.value,
+      data.date,
+      data.barberId || null,
+      data.serviceId || null,
+      data.appointmentId || null,
+    ]
   );
-  return db.prepare("SELECT * FROM transactions WHERE id = ?").get(id);
+  return await db.get("SELECT * FROM transactions WHERE id = ?", [id]);
 }
-function findByAppointment(appointmentId) {
-  return db.prepare("SELECT * FROM transactions WHERE appointmentId = ? AND type = 'receita'").get(appointmentId);
+async function findByAppointment(appointmentId) {
+  return await db.get("SELECT * FROM transactions WHERE appointmentId = ? AND type = 'receita'", [appointmentId]);
 }
-function deleteTransaction(id) {
-  db.prepare("DELETE FROM transactions WHERE id = ?").run(id);
+async function deleteTransaction(id) {
+  await db.run("DELETE FROM transactions WHERE id = ?", [id]);
 }
 
 module.exports = { listTransactions, createTransaction, findByAppointment, deleteTransaction };

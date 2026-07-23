@@ -4,22 +4,22 @@ const Transactions = require("../models/transactions.model");
 
 const router = express.Router();
 
-router.get("/", requireAuth, (req, res) => {
+router.get("/", requireAuth, async (req, res) => {
   const { dateFrom, dateTo, type } = req.query;
-  res.json(Transactions.listTransactions({ dateFrom, dateTo, type }));
+  res.json(await Transactions.listTransactions({ dateFrom, dateTo, type }));
 });
 
-router.post("/", requireAuth, (req, res) => {
+router.post("/", requireAuth, async (req, res) => {
   const { description, value, date } = req.body || {};
   if (!description || !value || !date) {
     return res.status(400).json({ error: "Descrição, valor e data são obrigatórios." });
   }
-  const tx = Transactions.createTransaction({ type: "despesa", description, value, date });
+  const tx = await Transactions.createTransaction({ type: "despesa", description, value, date });
   res.status(201).json(tx);
 });
 
-router.delete("/:id", requireAuth, (req, res) => {
-  Transactions.deleteTransaction(req.params.id);
+router.delete("/:id", requireAuth, async (req, res) => {
+  await Transactions.deleteTransaction(req.params.id);
   res.json({ ok: true });
 });
 

@@ -1,25 +1,25 @@
 const bcrypt = require("bcryptjs");
 const db = require("../db");
 
-function getAdmin() {
-  return db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
+async function getAdmin() {
+  return await db.get("SELECT * FROM users WHERE username = 'admin'");
 }
-function ensureSeeded() {
-  const existing = getAdmin();
+async function ensureSeeded() {
+  const existing = await getAdmin();
   if (!existing) {
     const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD || "marquinhos123";
     const hash = bcrypt.hashSync(defaultPassword, 10);
-    db.prepare("INSERT INTO users (username, passwordHash) VALUES ('admin', ?)").run(hash);
+    await db.run("INSERT INTO users (username, passwordHash) VALUES ('admin', ?)", [hash]);
   }
 }
-function verifyPassword(plain) {
-  const admin = getAdmin();
+async function verifyPassword(plain) {
+  const admin = await getAdmin();
   if (!admin) return false;
   return bcrypt.compareSync(plain, admin.passwordHash);
 }
-function changePassword(newPlain) {
+async function changePassword(newPlain) {
   const hash = bcrypt.hashSync(newPlain, 10);
-  db.prepare("UPDATE users SET passwordHash = ? WHERE username = 'admin'").run(hash);
+  await db.run("UPDATE users SET passwordHash = ? WHERE username = 'admin'", [hash]);
 }
 
 module.exports = { getAdmin, ensureSeeded, verifyPassword, changePassword };

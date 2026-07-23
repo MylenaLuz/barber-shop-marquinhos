@@ -2,16 +2,13 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 
-require("./db"); // roda a migração idempotente (CREATE TABLE IF NOT EXISTS) na subida
+const db = require("./db");
 
 const User = require("./models/user.model");
 const Barbers = require("./models/barbers.model");
 const Services = require("./models/services.model");
 const Plans = require("./models/plans.model");
-User.ensureSeeded();
-Barbers.ensureSeeded();
-Services.ensureSeeded();
-Plans.ensureSeeded();
+const Settings = require("./models/settings.model");
 
 const authRoutes = require("./routes/auth.routes");
 const barbersRoutes = require("./routes/barbers.routes");
@@ -50,8 +47,27 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`API da Barbearia Marquinhos rodando em http://localhost:${PORT}`);
+
+// Sobe o servidor só depois que o schema (CREATE TABLE IF NOT EXISTS) e os
+// dados padrão (barbeiros, serviços, planos, admin) estiverem prontos —
+// necessário agora porque o cliente do Turso/libSQL é assíncrono (antes,
+// com better-sqlite3, tudo isso rodava de forma síncrona antes do listen).
+async function start() {
+  await db.migrate();
+  await User.ensureSeeded();
+  await Barbers.ensureSeeded();
+  await Services.ensureSeeded();
+  await Plans.ensureSeeded();
+  await Settings.ensureSeeded();
+
+  app.listen(PORT, () => {
+    console.log(`API da Barbearia Marquinhos rodando em http://localhost:${PORT}`);
+  });
+}
+
+start().catch((err) => {
+  console.error("Falha ao iniciar o servidor:", err);
+  process.exit(1);
 });
 
 module.exports = app;

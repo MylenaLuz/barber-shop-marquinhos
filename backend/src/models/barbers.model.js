@@ -6,55 +6,58 @@ function rowToBarber(row) {
   return { ...row, tags: JSON.parse(row.tags || "[]") };
 }
 
-function listBarbers() {
-  const rows = db.prepare("SELECT * FROM barbers ORDER BY sortOrder ASC, createdAt ASC").all();
+async function listBarbers() {
+  const rows = await db.all("SELECT * FROM barbers ORDER BY sortOrder ASC, createdAt ASC");
   return rows.map(rowToBarber);
 }
-function getBarber(id) {
-  return rowToBarber(db.prepare("SELECT * FROM barbers WHERE id = ?").get(id));
+async function getBarber(id) {
+  const row = await db.get("SELECT * FROM barbers WHERE id = ?", [id]);
+  return rowToBarber(row);
 }
-function createBarber(data) {
+async function createBarber(data) {
   const id = data.id || uid("barber");
-  db.prepare(
+  await db.run(
     `INSERT INTO barbers (id, name, role, tags, photo, instagram, experienceYears, sortOrder)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    id,
-    data.name,
-    data.role || "",
-    JSON.stringify(data.tags || []),
-    data.photo || "",
-    data.instagram || "",
-    data.experienceYears || 0,
-    data.sortOrder || 0
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      data.name,
+      data.role || "",
+      JSON.stringify(data.tags || []),
+      data.photo || "",
+      data.instagram || "",
+      data.experienceYears || 0,
+      data.sortOrder || 0,
+    ]
   );
-  return getBarber(id);
+  return await getBarber(id);
 }
-function updateBarber(id, data) {
-  const current = getBarber(id);
+async function updateBarber(id, data) {
+  const current = await getBarber(id);
   if (!current) return null;
   const next = { ...current, ...data };
-  db.prepare(
-    `UPDATE barbers SET name=?, role=?, tags=?, photo=?, instagram=?, experienceYears=?, sortOrder=? WHERE id=?`
-  ).run(
-    next.name,
-    next.role,
-    JSON.stringify(next.tags || []),
-    next.photo,
-    next.instagram,
-    next.experienceYears,
-    next.sortOrder,
-    id
+  await db.run(
+    `UPDATE barbers SET name=?, role=?, tags=?, photo=?, instagram=?, experienceYears=?, sortOrder=? WHERE id=?`,
+    [
+      next.name,
+      next.role,
+      JSON.stringify(next.tags || []),
+      next.photo,
+      next.instagram,
+      next.experienceYears,
+      next.sortOrder,
+      id,
+    ]
   );
-  return getBarber(id);
+  return await getBarber(id);
 }
-function deleteBarber(id) {
-  db.prepare("DELETE FROM barbers WHERE id = ?").run(id);
+async function deleteBarber(id) {
+  await db.run("DELETE FROM barbers WHERE id = ?", [id]);
 }
-function ensureSeeded() {
-  const count = db.prepare("SELECT COUNT(*) as c FROM barbers").get().c;
-  if (count === 0) {
-    createBarber({
+async function ensureSeeded() {
+  const row = await db.get("SELECT COUNT(*) as c FROM barbers");
+  if (row.c === 0) {
+    await createBarber({
       id: "marcos",
       name: "Marcos Alexandre",
       role: "Barbeiro & Fundador",
@@ -64,7 +67,7 @@ function ensureSeeded() {
       experienceYears: 6,
       sortOrder: 1,
     });
-    createBarber({
+    await createBarber({
       id: "kauan",
       name: "Kauan",
       role: "Barbeiro",

@@ -1,0 +1,6 @@
+Imagens dos serviços — troque pelas fotos reais quando tiver.
+Cada serviço aponta para um arquivo aqui dentro (edite em
+Admin > Serviços > Editar > campo "Imagem", ou substitua o arquivo
+mantendo o mesmo nome).
+As imagens atuais são fotos reais da barbearia usadas como placeholder
+temporário até vocês definirem uma foto para cada serviço específico.

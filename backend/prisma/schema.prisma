@@ -1,0 +1,116 @@
+// ============================================================
+// Referência opcional — NÃO usado em tempo de execução aqui.
+//
+// O backend deste projeto usa better-sqlite3 puro (veja src/db/
+// e src/models/), porque este ambiente de desenvolvimento bloqueia
+// o download dos binários de engine do Prisma (binaries.prisma.sh).
+//
+// Se depois vocês quiserem migrar para Prisma de verdade no
+// servidor de produção (onde a internet é livre), este schema
+// já mapeia as mesmas tabelas — é só rodar:
+//   npm install prisma @prisma/client
+//   npx prisma db push
+// e reescrever os arquivos de src/models/ para usar o Prisma Client
+// no lugar das queries SQL diretas.
+// ============================================================
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./data/marquinhos.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+model Barber {
+  id              String   @id
+  name            String
+  role            String   @default("")
+  tags            String   @default("[]")
+  photo           String   @default("")
+  instagram       String   @default("")
+  experienceYears Int      @default(0)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  appointments    Appointment[]
+  transactions    Transaction[]
+}
+
+model Service {
+  id           String   @id
+  name         String
+  description  String   @default("")
+  price        Float
+  duration     Int
+  image        String   @default("")
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  appointments Appointment[]
+  transactions Transaction[]
+}
+
+model Client {
+  id           String        @id
+  name         String
+  phone        String        @unique
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @default(now())
+  appointments Appointment[]
+}
+
+model Appointment {
+  id          String   @id
+  barberId    String
+  barber      Barber   @relation(fields: [barberId], references: [id])
+  serviceId   String?
+  service     Service? @relation(fields: [serviceId], references: [id])
+  clientId    String?
+  client      Client?  @relation(fields: [clientId], references: [id])
+  clientName  String   @default("")
+  clientPhone String   @default("")
+  date        String
+  time        String
+  duration    Int
+  price       Float    @default(0)
+  status      String   @default("confirmado")
+  isBlock     Boolean  @default(false)
+  note        String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+  transaction Transaction?
+}
+
+model Transaction {
+  id            String       @id
+  type          String
+  description   String
+  value         Float
+  date          String
+  barberId      String?
+  barber        Barber?      @relation(fields: [barberId], references: [id])
+  serviceId     String?
+  service       Service?     @relation(fields: [serviceId], references: [id])
+  appointmentId String?      @unique
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  createdAt     DateTime     @default(now())
+}
+
+model Settings {
+  id        Int    @id @default(1)
+  name      String
+  whatsapp  String @default("")
+  instagram String @default("")
+  phone     String @default("")
+  address   String @default("")
+  logo      String @default("")
+  heroVideo String @default("/video/hero.mp4")
+  hours     String @default("{}")
+}

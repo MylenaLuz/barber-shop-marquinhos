@@ -1,0 +1,7 @@
+Coloque aqui as fotos reais dos barbeiros:
+  marcos.jpg
+  kauan.jpg
+
+O sistema já está configurado para carregar exatamente esses nomes de arquivo
+(pode trocar o caminho em Configurações > Barbeiros, se preferir outro nome).
+As imagens atuais são placeholders gerados automaticamente.

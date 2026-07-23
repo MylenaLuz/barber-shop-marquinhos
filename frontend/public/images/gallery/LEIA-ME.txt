@@ -1,0 +1,4 @@
+Adicione novas imagens nesta pasta (gallery-10.jpg, gallery-11.jpg...).
+O carrossel da seção "Galeria" carrega essa lista a partir de
+src/components/Gallery.jsx — adicione o novo nome de arquivo no array
+GALLERY_IMAGES no topo do componente.

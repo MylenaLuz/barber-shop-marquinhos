@@ -1,0 +1,8 @@
+hero.mp4    -> vídeo de fundo da capa (seção Hero). Para trocar, substitua
+               este arquivo mantendo o mesmo nome "hero.mp4".
+
+espaco.mp4  -> vídeo da seção "Espaço" (o vídeo mostrando o ambiente da
+               barbearia). Este é um arquivo placeholder (só um fundo com
+               texto). Para colocar o vídeo definitivo, basta substituir
+               este arquivo por outro mp4 com o mesmo nome "espaco.mp4" —
+               não precisa mexer em nenhum código.

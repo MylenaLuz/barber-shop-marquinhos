@@ -10,12 +10,12 @@ import "swiper/css/pagination";
 // e inclua o nome do arquivo aqui embaixo — o carrossel carrega essa lista.
 const GALLERY_IMAGES = [
   { src: "/images/gallery/gallery-1.jpg", caption: "Freestyle " },
-  { src: "/images/gallery/gallery-2.jpg", caption: "Desgradê" },
-  { src: "/images/gallery/gallery-3.jpg", caption: "Desgradê com pigmentação" },
+  { src: "/images/gallery/gallery-2.jpg", caption: "Degradê" },
+  { src: "/images/gallery/gallery-3.jpg", caption: "Degradê com pigmentação" },
   { src: "/images/gallery/gallery-4.jpg", caption: "luzes" },
   { src: "/images/gallery/gallery-5.jpg", caption: "Freestyle" },
   { src: "/images/gallery/gallery-6.jpg", caption: "Freestyle geométrico" },
-  { src: "/images/gallery/gallery-7.jpg", caption: "Desgradê" },
+  { src: "/images/gallery/gallery-7.jpg", caption: "Degradê" },
   { src: "/images/gallery/gallery-8.jpg", caption: "Luzes" },
   { src: "/images/gallery/gallery-9.jpg", caption: "Infantil" },
 ];

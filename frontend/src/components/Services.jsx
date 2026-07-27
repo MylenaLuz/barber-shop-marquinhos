@@ -1,8 +1,8 @@
 import { useRef } from "react";
 import { motion, useMotionValue, useTransform, useSpring } from "framer-motion";
-import { Clock, CurrencyDollar } from "@phosphor-icons/react";
+import { Clock } from "@phosphor-icons/react";
 import { useSiteData } from "../context/SiteDataContext";
-import { formatBRL } from "../services/format";
+import { formatBRL, formatDuration } from "../services/format";
 
 function ServiceCard({ svc, onBook, index }) {
   const ref = useRef(null);
@@ -41,7 +41,7 @@ function ServiceCard({ svc, onBook, index }) {
       <p style={{ fontSize: 13, color: "var(--silver-dim)", lineHeight: 1.6, minHeight: 40 }}>{svc.description}</p>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "14px 0 18px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--silver-dim)" }}>
-          <Clock size={14} /> {svc.duration} min
+          <Clock size={14} /> {formatDuration(svc.duration)}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "'Bebas Neue'", fontSize: 26, color: "var(--gold)" }}>
           {formatBRL(svc.price)}

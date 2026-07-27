@@ -2,6 +2,18 @@ export function formatBRL(n) {
   return "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+export function formatDuration(minutes) {
+  const total = Number(minutes || 0);
+  if (!total) return "0 min";
+  if (total < 60) return `${total} min`;
+
+  const hours = Math.floor(total / 60);
+  const rest = total % 60;
+  const hourLabel = `${hours} h`;
+
+  return rest ? `${hourLabel} ${rest} min` : hourLabel;
+}
+
 export function todayISO() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

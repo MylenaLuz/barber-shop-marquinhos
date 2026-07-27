@@ -42,6 +42,11 @@ async function run(sql, params = []) {
 async function migrate() {
   const schema = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf8");
   await client.executeMultiple(schema);
+
+  const serviceColumns = await all("PRAGMA table_info(services)");
+  if (!serviceColumns.some((column) => column.name === "active")) {
+    await run("ALTER TABLE services ADD COLUMN active INTEGER NOT NULL DEFAULT 1");
+  }
 }
 
 module.exports = { all, get, run, migrate, client };

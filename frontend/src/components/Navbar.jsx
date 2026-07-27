@@ -17,6 +17,7 @@ export default function Navbar({ onBook }) {
   const { settings } = useSiteData();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [firstName, ...restName] = (settings?.name || "Barbearia Marquinhos").split(" ");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -37,13 +38,13 @@ export default function Navbar({ onBook }) {
         borderBottom: scrolled ? "1px solid var(--line)" : "1px solid transparent",
       }}
     >
-      <div className="wrap nav-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0" }}>
-        <a href="#" className="nav-brand" style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+      <div className="wrap nav-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "14px 0" }}>
+        <a href="#" className="nav-brand" style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: "1 1 auto" }}>
           {settings?.logo && (
             <img src={settings.logo} alt="logo" className="nav-logo-img" style={{ height: 42, width: 42, objectFit: "contain", filter: "drop-shadow(0 0 10px rgba(205,164,78,0.25))", flex: "none" }} />
           )}
-          <span className="nav-brand-text" style={{ fontFamily: "'Bebas Neue'", fontSize: 23, letterSpacing: "0.03em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {settings?.name?.split(" ")[0]} <span style={{ color: "var(--gold)" }}>{settings?.name?.split(" ").slice(1).join(" ")}</span>
+          <span className="nav-brand-text" style={{ fontFamily: "'Bebas Neue'", fontSize: "clamp(18px, 2.2vw, 23px)", letterSpacing: 0, lineHeight: 0.95, whiteSpace: "normal", overflowWrap: "anywhere", minWidth: 0 }}>
+            {firstName} <span style={{ color: "var(--gold)" }}>{restName.join(" ")}</span>
           </span>
         </a>
 
@@ -106,11 +107,12 @@ export default function Navbar({ onBook }) {
         }
         @media (max-width: 480px){
           .nav-row{ padding-top:10px !important; padding-bottom:10px !important; }
-          .nav-brand-text{ font-size:19px !important; }
+          .nav-brand{ gap:9px !important; }
+          .nav-brand-text{ font-size:clamp(16px, 5vw, 19px) !important; }
           .nav-logo-img{ height:34px !important; width:34px !important; }
         }
         @media (max-width: 360px){
-          .nav-brand-text{ max-width:150px; }
+          .nav-brand-text{ font-size:16px !important; }
         }
       `}</style>
     </header>

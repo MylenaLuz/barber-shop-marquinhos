@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS services (
   price REAL NOT NULL,
   duration INTEGER NOT NULL,
   image TEXT NOT NULL DEFAULT '',
+  active INTEGER NOT NULL DEFAULT 1,
   sortOrder INTEGER NOT NULL DEFAULT 0,
   createdAt TEXT NOT NULL DEFAULT (datetime('now'))
 );

@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X, ArrowLeft, ArrowRight, CheckCircle, Clock } from "@phosphor-icons/react";
 import { useSiteData } from "../context/SiteDataContext";
 import { AppointmentsAPI } from "../services/resources";
-import { formatBRL, formatDateLong, todayISO } from "../services/format";
+import { formatBRL, formatDateLong, formatDuration, todayISO } from "../services/format";
 
 const TOTAL_STEPS = 6;
 
@@ -110,7 +110,7 @@ export default function BookingModal({ open, onClose, initialBarberId }) {
                   <StepWrap key="s2" label="Passo 2 de 6" title="Escolha o serviço">
                     <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 360, overflowY: "auto" }}>
                       {services.map((s) => (
-                        <OptionBtn key={s.id} selected={serviceId === s.id} onClick={() => { setServiceId(s.id); setStep(3); }} title={s.name} sub={`${s.duration} min`} right={formatBRL(s.price)} />
+                        <OptionBtn key={s.id} selected={serviceId === s.id} onClick={() => { setServiceId(s.id); setStep(3); }} title={s.name} sub={formatDuration(s.duration)} right={formatBRL(s.price)} />
                       ))}
                     </div>
                     <Actions onBack={() => setStep(1)} />
@@ -171,7 +171,7 @@ export default function BookingModal({ open, onClose, initialBarberId }) {
                       <SummaryRow k="Serviço" v={service?.name} />
                       <SummaryRow k="Data" v={formatDateLong(date)} />
                       <SummaryRow k="Horário" v={time} />
-                      <SummaryRow k="Duração" v={`${service?.duration} min`} />
+                      <SummaryRow k="Duração" v={formatDuration(service?.duration)} />
                       <SummaryRow k="Valor" v={formatBRL(service?.price)} />
                       <SummaryRow k="Nome" v={name} />
                       <SummaryRow k="Telefone" v={phone} />

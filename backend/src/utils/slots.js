@@ -16,9 +16,39 @@ function minToTime(m) {
 function overlaps(aS, aE, bS, bE) {
   return aS < bE && bS < aE;
 }
+
+// Pega a hora/data "de verdade" no fuso da barbearia (America/Sao_Paulo),
+// não importa em qual fuso o servidor (Render, Vercel etc.) esteja rodando.
+// Isso evita o bug de "sumiço de horários" quando o servidor roda em UTC.
+function nowInSaoPaulo() {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = fmt.formatToParts(new Date());
+  const get = (type) => parts.find((p) => p.type === type).value;
+  return {
+    year: Number(get("year")),
+    month: Number(get("month")),
+    day: Number(get("day")),
+    hour: Number(get("hour")),
+    minute: Number(get("minute")),
+  };
+}
+
 function todayISO() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const n = nowInSaoPaulo();
+  return `${n.year}-${String(n.month).padStart(2, "0")}-${String(n.day).padStart(2, "0")}`;
+}
+
+function nowMinutesOfDay() {
+  const n = nowInSaoPaulo();
+  return n.hour * 60 + n.minute;
 }
 
 /**
@@ -40,8 +70,7 @@ function generateSlots({ hours, dateISO, durationMin, existingAppointments, step
   }));
 
   const isToday = dateISO === todayISO();
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const nowMin = nowMinutesOfDay();
 
   const slots = [];
   for (let t = openMin; t + Number(durationMin) <= closeMin; t += stepMin) {
@@ -52,4 +81,13 @@ function generateSlots({ hours, dateISO, durationMin, existingAppointments, step
   return slots;
 }
 
-module.exports = { generateSlots, weekdayKey, timeToMin, minToTime, overlaps, todayISO, WEEKDAY_KEYS };
+module.exports = {
+  generateSlots,
+  weekdayKey,
+  timeToMin,
+  minToTime,
+  overlaps,
+  todayISO,
+  nowMinutesOfDay,
+  WEEKDAY_KEYS,
+};

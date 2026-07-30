@@ -5,7 +5,7 @@ const Transactions = require("../models/transactions.model");
 const Barbers = require("../models/barbers.model");
 const Services = require("../models/services.model");
 const Clients = require("../models/clients.model");
-const { todayISO, timeToMin } = require("../utils/slots");
+const { todayISO, timeToMin, nowMinutesOfDay } = require("../utils/slots");
 const { periodRange } = require("../utils/period");
 
 const router = express.Router();
@@ -14,8 +14,7 @@ router.get("/home", requireAuth, async (req, res) => {
   const today = todayISO();
   const allToday = await Appointments.listAppointments({ date: today });
   const todays = allToday.filter((a) => a.status !== "cancelado");
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const nowMin = nowMinutesOfDay();
   const next = todays
     .filter((a) => a.status === "confirmado" && timeToMin(a.time) >= nowMin)
     .sort((a, b) => a.time.localeCompare(b.time))[0];
